@@ -1,0 +1,300 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  avatar    String?
+  password  String
+  role      Role     @default(USER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  portfolios        Portfolio[]
+  riskProfiles      RiskProfile[]
+  recommendations   Recommendation[]
+  transactions      Transaction[]
+  investmentGoals   InvestmentGoal[]
+  userSettings      UserSettings?
+  watchlists        Watchlist[]
+
+  @@map("users")
+}
+
+model Portfolio {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  totalValue   Float    @default(0)
+  totalCost    Float    @default(0)
+  totalGain    Float    @default(0)
+  totalGainPercent Float @default(0)
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positions    Position[]
+  transactions Transaction[]
+
+  @@map("portfolios")
+}
+
+model Position {
+  id           String   @id @default(cuid())
+  portfolioId  String
+  symbol       String
+  shares       Float
+  averagePrice Float
+  currentPrice Float
+  marketValue  Float
+  costBasis    Float
+  gain         Float
+  gainPercent  Float
+  weight       Float
+  lastUpdated  DateTime @default(now())
+
+  // Relations
+  portfolio    Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, symbol])
+  @@map("positions")
+}
+
+model Transaction {
+  id          String        @id @default(cuid())
+  portfolioId String
+  userId      String
+  symbol      String
+  type        TransactionType
+  shares      Float
+  price       Float
+  total       Float
+  fees        Float         @default(0)
+  date        DateTime      @default(now())
+  notes       String?
+
+  // Relations
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
+}
+
+model RiskProfile {
+  id             String        @id @default(cuid())
+  userId         String
+  riskTolerance  RiskTolerance
+  riskScore      Float
+  timeHorizon    Int           // in years
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers        RiskAnswer[]
+
+  @@map("risk_profiles")
+}
+
+model RiskAnswer {
+  id             String @id @default(cuid())
+  riskProfileId  String
+  questionId     String
+  answer         String
+  score          Float
+
+  // Relations
+  riskProfile    RiskProfile @relation(fields: [riskProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([riskProfileId, questionId])
+  @@map("risk_answers")
+}
+
+model InvestmentGoal {
+  id            String      @id @default(cuid())
+  userId        String
+  name          String
+  targetAmount  Float
+  currentAmount Float        @default(0)
+  targetDate    DateTime
+  priority      Priority
+  type          GoalType
+  isCompleted   Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("investment_goals")
+}
+
+model Recommendation {
+  id           String      @id @default(cuid())
+  userId       String
+  symbol       String
+  action       ActionType
+  confidence   Float
+  reasoning    String
+  targetPrice  Float?
+  stopLoss     Float?
+  timeHorizon  String
+  riskLevel    RiskLevel
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+
+  // Relations
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("recommendations")
+}
+
+model Watchlist {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  symbols   String[] // Array of stock symbols
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("watchlists")
+}
+
+model UserSettings {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  theme                 String   @default("system")
+  notifications         Json     @default("{}")
+  privacy               Json     @default("{}")
+  trading               Json     @default("{}")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model Stock {
+  symbol        String   @id
+  name          String
+  price         Float
+  change        Float
+  changePercent Float
+  volume        BigInt
+  marketCap     BigInt
+  pe            Float?
+  eps           Float?
+  dividend      Float?
+  yield         Float?
+  high52Week    Float?
+  low52Week     Float?
+  sector        String?
+  industry      String?
+  description   String?
+  logo          String?
+  lastUpdated   DateTime @default(now())
+
+  @@map("stocks")
+}
+
+model NewsItem {
+  id            String      @id @default(cuid())
+  title         String
+  summary       String
+  content       String
+  url           String      @unique
+  source        String
+  publishedAt   DateTime
+  sentiment     Sentiment
+  sentimentScore Float
+  symbols       String[]    // Array of related stock symbols
+  category      String
+  createdAt     DateTime    @default(now())
+
+  @@map("news_items")
+}
+
+model MarketData {
+  id          String   @id @default(cuid())
+  symbol      String
+  price       Float
+  change      Float
+  changePercent Float
+  volume      BigInt
+  timestamp   DateTime @default(now())
+
+  @@map("market_data")
+}
+
+// Enums
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum TransactionType {
+  BUY
+  SELL
+  DIVIDEND
+  SPLIT
+}
+
+enum RiskTolerance {
+  CONSERVATIVE
+  MODERATE
+  AGGRESSIVE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum GoalType {
+  RETIREMENT
+  EDUCATION
+  HOUSE
+  TRAVEL
+  EMERGENCY
+  OTHER
+}
+
+enum ActionType {
+  BUY
+  SELL
+  HOLD
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Sentiment {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+}
